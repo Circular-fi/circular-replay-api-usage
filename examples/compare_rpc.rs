@@ -92,7 +92,7 @@ async fn main() -> Result<()> {
 
     compare_loaded_accounts(&svm, &versioned_tx, rpc_meta);
 
-    prepare_tx_for_svm(&mut versioned_tx, &svm);
+    prepare_tx_for_svm(&mut versioned_tx, &svm, &snapshot);
     let svm_out = run_on_svm(&mut svm, versioned_tx);
 
     let mut report = CompareReport::default();

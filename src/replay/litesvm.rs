@@ -1,7 +1,7 @@
 //! Replay a transaction on [LiteSVM](https://docs.rs/litesvm) from a gateway snapshot.
 //!
 //! - sigverify OFF (real signatures are not available)
-//! - blockhash_check OFF (the original blockhash is not in the local SVM)
+//! - blockhash_check OFF; when `execution.last_blockhash` is present it is used as the message blockhash
 //! - `Clock`, `SlotHashes`, `LastRestartSlot`, `EpochSchedule`, and `Rent` come from the snapshot
 //!   (`execution`, `epoch_schedule`, `rent`) — no RPC during setup
 //! - SVM feature gates enabled before loading programs
@@ -16,6 +16,7 @@ use litesvm::LiteSVM;
 use solana_sdk::{
     clock::Clock,
     epoch_schedule::EpochSchedule,
+    hash::Hash,
     pubkey::Pubkey,
     rent::Rent,
     signature::Signature,
@@ -141,9 +142,21 @@ pub fn setup_svm_from_snapshot(
     load_pre_into_svm(svm, snapshot)
 }
 
-pub fn prepare_tx_for_svm(tx: &mut VersionedTransaction, svm: &LiteSVM) {
-    let svm_blockhash = svm.latest_blockhash();
-    tx.message.set_recent_blockhash(svm_blockhash);
+/// Sets the message blockhash for local execution. When the snapshot carries
+/// `execution.last_blockhash` (parent blockhash seen by txs in that slot),
+/// use it so durable-nonce advances match chain state.
+pub fn prepare_tx_for_svm(
+    tx: &mut VersionedTransaction,
+    svm: &LiteSVM,
+    snapshot: &ReplaySnapshot,
+) {
+    let blockhash = snapshot
+        .execution
+        .as_ref()
+        .and_then(|exec| exec.last_blockhash.as_deref())
+        .and_then(|s| Hash::from_str(s).ok())
+        .unwrap_or_else(|| svm.latest_blockhash());
+    tx.message.set_recent_blockhash(blockhash);
     let n_sigs = tx.signatures.len();
     tx.signatures = vec![Signature::default(); n_sigs];
 }

@@ -61,6 +61,13 @@ pub struct ExecutionSnapshot {
     pub last_restart_slot: u64,
     /// Base64 of the `SlotHashes` sysvar account data.
     pub slot_hashes: String,
+    /// Base58 blockhash transactions in this slot run with (parent's last blockhash).
+    /// Absent on snapshots captured before the replayer recorded it.
+    #[serde(default)]
+    pub last_blockhash: Option<String>,
+    /// Fee rate stored alongside the nonce on advance.
+    #[serde(default)]
+    pub lamports_per_signature: Option<u64>,
 }
 
 /// Mirrors `EpochScheduleSnapshot` on the replayer response.
@@ -86,6 +93,9 @@ pub struct AltSnapshot {
     pub lamports: u64,
     #[serde(default)]
     pub status: String,
+    /// Slot deactivation was initiated (`null` when still active).
+    #[serde(default)]
+    pub deactivation_slot: Option<u64>,
     #[serde(default)]
     pub authority: Option<String>,
     #[serde(default)]
@@ -190,11 +200,14 @@ fn build_alt_account_data(snap: &AltSnapshot) -> Result<Vec<u8>> {
         _ => None,
     };
 
-    // u64::MAX = active. Any other status maps to 0 so the ALT stays usable during replay.
-    let deactivation_slot = match snap.status.as_str() {
-        "deactivated" | "deactivating" => 0,
-        _ => u64::MAX,
-    };
+    let deactivation_slot = snap.deactivation_slot.unwrap_or_else(|| {
+        // Legacy snapshots without `deactivation_slot`: approximate from status.
+        match snap.status.as_str() {
+            "deactivated" => 0,
+            "deactivating" => 0,
+            _ => u64::MAX,
+        }
+    });
 
     let addresses: Vec<Pubkey> = snap
         .addresses

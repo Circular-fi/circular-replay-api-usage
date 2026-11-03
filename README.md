@@ -118,7 +118,9 @@ let snapshot = client.replay_with_accounts(&req).await?;
 
 ## API errors
 
-JSON body `{ "error": "<code>", "message": "…" }`. Common codes: `unauthorized`, `transaction_not_found`, `slot_not_yet_indexed` (503), `slot_purged` (410), `too_many_requests` (429).
+JSON body `{ "error": "<code>", "message": "…" }`. Common codes: `unauthorized`, `transaction_not_found`, `slot_not_resolved` (404), `slot_not_yet_indexed` (503), `slot_out_of_range` (410), `slot_purged` (410), `too_many_requests` (429).
+
+Replay responses may include `execution.last_blockhash` and `execution.lamports_per_signature` (parent blockhash for durable nonces). The LiteSVM helpers use them when present. ALT entries may include `deactivation_slot` for deactivating tables.
 
 ## Layout
 
