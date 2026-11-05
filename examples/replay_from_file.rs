@@ -2,7 +2,7 @@
 //!
 //! ```bash
 //! cargo run --example replay_from_file
-//! cargo run --example replay_from_file -- --file fixtures/replay-circular-4HqcGERuLJKvnKda.json
+//! cargo run --example replay_from_file -- --file fixtures/replay-circular-4UAJr3GYEgZGZkxo.json
 //! ```
 
 use anyhow::Result;
@@ -13,8 +13,8 @@ use std::path::PathBuf;
 #[derive(Parser)]
 #[command(about = "Inspect a local Circular replay JSON snapshot")]
 struct Args {
-    /// Path to `replay-circular-*.json` (Circular `/v1/replay` response shape).
-    #[arg(long, short, default_value = "fixtures/replay-circular-4HqcGERuLJKvnKda.json")]
+    /// Path to `replay-circular-*.json` (Pro `/v2/replay/tx` snapshot shape).
+    #[arg(long, short, default_value = "fixtures/replay-circular-4UAJr3GYEgZGZkxo.json")]
     file: PathBuf,
 }
 

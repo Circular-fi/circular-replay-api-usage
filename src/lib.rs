@@ -1,17 +1,11 @@
-//! Standalone client and LiteSVM helpers for the **Circular Replay API**.
-//!
-//! - `GET /v1/replay/{signature}` with `alts` and `spl`
-//! - LiteSVM setup from snapshot `execution`, `epoch_schedule`, and `rent` (no RPC)
+//! Client and LiteSVM helpers for the **Circular Pro replay API** (`/v2/replay/*`).
 
 pub mod api;
 pub mod programs;
 pub mod replay;
 pub mod util;
 
-pub use api::{
-    CircularReplayClient, CircularReplayQuery, CircularReplayRequest, ProgramsMode,
-    ReplaySlotRequest, SlotEntriesRequest,
-};
+pub use api::{CircularReplayClient, CircularReplayQuery, ReplaySlotQuery};
 pub use replay::{
     compare_loaded_accounts, compare_rpc_vs_svm, decode_tx_from_rpc_response, fetch_confirmed_tx,
     load_snapshot_file, message_version_label, new_replay_svm, parse_signature, prepare_tx_for_svm,

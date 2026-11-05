@@ -1,25 +1,23 @@
-//! Account states at the start of a slot via `POST /v1/replay-slot`.
-//!
-//! For the state at the *end* of slot N, ask for N+1.
+//! Account states at the start of a slot via `GET /v2/replay/slot/{slot}`.
 //!
 //! ```bash
 //! export CIRCULAR_REPLAY_API_KEY=your_key
-//! cargo run --example replay_slot -- --slot 461775917 \
+//! cargo run --example replay_slot -- --slot 465589364 \
 //!     --account Harmonic8SoAfZixJqUxxdSeyWzr6q7XFjuiXS5Z2zPg
 //! ```
 
 use anyhow::{Context, Result};
-use circular_replay::{print_json_response, CircularReplayClient, ProgramsMode, ReplaySlotRequest};
+use circular_replay::{print_json_response, CircularReplayClient, ReplaySlotQuery};
 use clap::Parser;
 use std::path::PathBuf;
-use std::str::FromStr;
 
-const DEFAULT_SLOT: u64 = 461_775_917;
+const DEFAULT_URL: &str = "https://pro.circular.fi";
+const DEFAULT_SLOT: u64 = 465_589_364;
 
 #[derive(Parser)]
-#[command(about = "Call POST /v1/replay-slot")]
+#[command(about = "Call GET /v2/replay/slot/{slot}")]
 struct Args {
-    #[arg(long, env = "CIRCULAR_REPLAY_URL", default_value = "http://localhost:8080")]
+    #[arg(long, env = "CIRCULAR_REPLAY_URL", default_value = DEFAULT_URL)]
     circular_url: String,
 
     #[arg(long, env = "CIRCULAR_REPLAY_API_KEY")]
@@ -28,7 +26,6 @@ struct Args {
     #[arg(long, default_value_t = DEFAULT_SLOT)]
     slot: u64,
 
-    /// Base58 pubkeys, 1 to 100 (repeat `--account` or comma-separated).
     #[arg(
         long = "account",
         value_delimiter = ',',
@@ -36,9 +33,14 @@ struct Args {
     )]
     accounts: Vec<String>,
 
-    /// Program bytecode mode: ref | inline | none.
-    #[arg(long, default_value = "inline", value_parser = ProgramsMode::from_str)]
-    programs: ProgramsMode,
+    #[arg(long, default_value_t = true)]
+    alts: bool,
+
+    #[arg(long, default_value_t = true)]
+    spl: bool,
+
+    #[arg(long, default_value_t = true)]
+    program_details: bool,
 
     #[arg(long, short = 'q')]
     quiet: bool,
@@ -53,11 +55,17 @@ async fn main() -> Result<()> {
     let args = Args::parse();
     let client = CircularReplayClient::new(&args.circular_url, &args.api_key)?;
 
-    let req = ReplaySlotRequest::new(args.slot, args.accounts.clone()).with_programs(args.programs);
+    let query = ReplaySlotQuery {
+        alts: args.alts,
+        spl: args.spl,
+        program_details: args.program_details,
+        accounts: args.accounts.clone(),
+    };
+
     let value = client
-        .replay_slot(&req)
+        .replay_slot(args.slot, &query)
         .await
-        .context("Circular POST /v1/replay-slot failed")?;
+        .context("GET /v2/replay/slot failed")?;
 
     let returned_slot = value.get("slot").map(|v| v.to_string()).unwrap_or_default();
     let account_states = value
@@ -66,7 +74,7 @@ async fn main() -> Result<()> {
         .map(|m| m.len())
         .unwrap_or(0);
 
-    eprintln!("--- POST /v1/replay-slot ---");
+    eprintln!("--- GET /v2/replay/slot/{{slot}} ---");
     eprintln!("slot:     {returned_slot}");
     eprintln!("queried:  {} account(s)", args.accounts.len());
     eprintln!("response: {account_states} account state(s) in JSON");

@@ -1,25 +1,24 @@
-//! Queryable slot window via `GET /status` (public route, no API key).
+//! Replayable slot window via `GET /v2/replay/status`.
 //!
 //! ```bash
 //! cargo run --example status
-//! cargo run --example status -- --circular-url http://localhost:8080
 //! ```
 
 use anyhow::{Context, Result};
 use circular_replay::{print_json_response, CircularReplayClient};
 use clap::Parser;
 
+const DEFAULT_URL: &str = "https://pro.circular.fi";
+
 #[derive(Parser)]
-#[command(about = "Call GET /status")]
+#[command(about = "Call GET /v2/replay/status")]
 struct Args {
-    #[arg(long, env = "CIRCULAR_REPLAY_URL", default_value = "http://localhost:8080")]
+    #[arg(long, env = "CIRCULAR_REPLAY_URL", default_value = DEFAULT_URL)]
     circular_url: String,
 
-    /// Not required for `/status`; only used to construct the client.
-    #[arg(long, env = "CIRCULAR_REPLAY_API_KEY", default_value = "")]
+    #[arg(long, env = "CIRCULAR_REPLAY_API_KEY")]
     api_key: String,
 
-    /// Print only a short summary on stderr (no JSON on stdout).
     #[arg(long, short = 'q')]
     quiet: bool,
 }
@@ -30,7 +29,7 @@ async fn main() -> Result<()> {
     let args = Args::parse();
     let client = CircularReplayClient::new(&args.circular_url, &args.api_key)?;
 
-    let status = client.status().await.context("GET /status")?;
+    let status = client.status().await.context("GET /v2/replay/status")?;
 
     if args.quiet {
         eprintln!(

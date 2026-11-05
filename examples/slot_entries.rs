@@ -1,21 +1,22 @@
-//! Transaction signatures of a slot, grouped by entry, via `POST /v1/slot-entries`.
+//! Transaction signatures of a slot via `GET /v2/replay/slot/{slot}/entries`.
 //!
 //! ```bash
 //! export CIRCULAR_REPLAY_API_KEY=your_key
-//! cargo run --example slot_entries -- --slot 461775917
+//! cargo run --example slot_entries -- --slot 465589364
 //! ```
 
 use anyhow::{Context, Result};
-use circular_replay::{print_json_response, CircularReplayClient, SlotEntriesRequest};
+use circular_replay::{print_json_response, CircularReplayClient};
 use clap::Parser;
 use std::path::PathBuf;
 
-const DEFAULT_SLOT: u64 = 461_773_004;
+const DEFAULT_URL: &str = "https://pro.circular.fi";
+const DEFAULT_SLOT: u64 = 465_589_364;
 
 #[derive(Parser)]
-#[command(about = "Call POST /v1/slot-entries")]
+#[command(about = "Call GET /v2/replay/slot/{slot}/entries")]
 struct Args {
-    #[arg(long, env = "CIRCULAR_REPLAY_URL", default_value = "http://localhost:8080")]
+    #[arg(long, env = "CIRCULAR_REPLAY_URL", default_value = DEFAULT_URL)]
     circular_url: String,
 
     #[arg(long, env = "CIRCULAR_REPLAY_API_KEY")]
@@ -24,7 +25,6 @@ struct Args {
     #[arg(long, default_value_t = DEFAULT_SLOT)]
     slot: u64,
 
-    /// Only print a short summary (no JSON body on stdout).
     #[arg(long, short = 'q')]
     quiet: bool,
 
@@ -38,11 +38,10 @@ async fn main() -> Result<()> {
     let args = Args::parse();
     let client = CircularReplayClient::new(&args.circular_url, &args.api_key)?;
 
-    let req = SlotEntriesRequest { slot: args.slot };
     let value = client
-        .slot_entries(&req)
+        .slot_entries(args.slot)
         .await
-        .context("Circular POST /v1/slot-entries failed")?;
+        .context("GET /v2/replay/slot/entries failed")?;
 
     let returned_slot = value.get("slot").map(|v| v.to_string()).unwrap_or_default();
     let entries = value.get("entries").and_then(|v| v.as_array());
@@ -56,7 +55,7 @@ async fn main() -> Result<()> {
         })
         .unwrap_or(0);
 
-    eprintln!("--- POST /v1/slot-entries ---");
+    eprintln!("--- GET /v2/replay/slot/{{slot}}/entries ---");
     eprintln!("slot:    {returned_slot}");
     eprintln!("entries: {entry_count} entry group(s), {tx_count} transaction(s)");
 

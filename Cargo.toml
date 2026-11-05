@@ -2,7 +2,7 @@
 name = "circular-replay-api-usage"
 version = "0.1.0"
 edition = "2024"
-description = "Client, hydration, and LiteSVM replay for the Circular Replay API (GET /v1/replay)"
+description = "Client, hydration, and LiteSVM replay for the Circular Pro replay API (/v2/replay)"
 license = "MIT OR Apache-2.0"
 
 [lib]

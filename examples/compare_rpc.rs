@@ -1,9 +1,9 @@
-//! Circular `GET /v1/replay`, re-execute in LiteSVM, compare with `getTransaction`.
+//! `GET /v2/replay/tx/{signature}`, re-execute in LiteSVM, compare with `getTransaction`.
 //!
 //! ```bash
 //! export CIRCULAR_REPLAY_API_KEY=your_key
 //! cargo run --example compare_rpc -- --signature '<base58>'
-//! cargo run --example compare_rpc -- -f fixtures/replay-circular-4HqcGERuLJKvnKda.json
+//! cargo run --example compare_rpc -- -f fixtures/replay-circular-4UAJr3GYEgZGZkxo.json
 //! ```
 
 use anyhow::{anyhow, Context, Result};
@@ -18,14 +18,12 @@ use solana_client::rpc_client::RpcClient;
 use solana_commitment_config::CommitmentConfig;
 use std::path::PathBuf;
 
+const DEFAULT_URL: &str = "https://pro.circular.fi";
 const DEFAULT_SIGNATURE: &str =
-    "4HqcGERuLJKvnKdaCPW5zjbhLf87tfXErJLhTxvRmneYnqQd1JVM2XtWsUPb5dcKPBWRMPDmW3R1NB1ymhkZPCF6";
+    "4UAJr3GYEgZGZkxoaxcJBjrKJjn5NEFqnh1aVKddgx1vrbjLLn5swKrmMFqPTe9zvmSThAfCAitkzN22aQxvGicH";
 
 #[derive(Parser, Debug)]
-#[command(
-    name = "compare_rpc",
-    about = "Circular replay snapshot → LiteSVM vs getTransaction RPC"
-)]
+#[command(name = "compare_rpc", about = "Replay snapshot → LiteSVM vs getTransaction RPC")]
 struct Args {
     #[arg(long, default_value = DEFAULT_SIGNATURE)]
     signature: String,
@@ -33,11 +31,7 @@ struct Args {
     #[arg(long, short = 'f')]
     file: Option<PathBuf>,
 
-    #[arg(
-        long,
-        env = "CIRCULAR_REPLAY_URL",
-        default_value = "http://localhost:8080"
-    )]
+    #[arg(long, env = "CIRCULAR_REPLAY_URL", default_value = DEFAULT_URL)]
     circular_url: String,
 
     #[arg(long, env = "CIRCULAR_REPLAY_API_KEY")]
@@ -51,6 +45,9 @@ struct Args {
 
     #[arg(long, default_value_t = true)]
     spl: bool,
+
+    #[arg(long, default_value_t = true)]
+    program_details: bool,
 }
 
 #[tokio::main]
@@ -114,29 +111,32 @@ async fn load_snapshot(args: &Args) -> Result<(ReplaySnapshot, String)> {
     let api_key = args
         .circular_api_key
         .as_deref()
-        .ok_or_else(|| anyhow!("CIRCULAR_REPLAY_API_KEY is required to fetch from Circular API"))?;
+        .ok_or_else(|| anyhow!("CIRCULAR_REPLAY_API_KEY is required"))?;
 
     let client = CircularReplayClient::new(&args.circular_url, api_key)?;
     let query = CircularReplayQuery {
         alts: args.alts,
         spl: args.spl,
+        program_details: args.program_details,
+        bonus_accounts: Vec::new(),
     };
 
     let value = client
         .replay(&args.signature, &query)
         .await
-        .context("Circular replay fetch failed")?;
+        .context("GET /v2/replay/tx fetch failed")?;
 
     let snap: ReplaySnapshot = serde_json::from_value(value)
-        .context("Circular replay response is not a valid ReplaySnapshot")?;
+        .context("replay response is not a valid ReplaySnapshot")?;
 
     Ok((
         snap,
         format!(
-            "circular:{}/v1/replay/{{sig}} (alts={}, spl={})",
+            "circular:{}/v2/replay/tx/{{sig}} (alts={}, spl={}, program_details={})",
             args.circular_url.trim_end_matches('/'),
             args.alts,
             args.spl,
+            args.program_details,
         ),
     ))
 }

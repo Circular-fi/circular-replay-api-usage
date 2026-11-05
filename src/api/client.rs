@@ -1,174 +1,55 @@
-//! HTTP client for the Circular Replay API.
+//! HTTP client for the Circular Pro replay API (`/v2/replay/*`).
 //!
-//! Endpoints:
-//! - `GET  /status`                      — queryable slot window (no auth)
-//! - `GET  /v1/replay/{signature}`       — pre/post state of a transaction
-//! - `POST /v1/replay`                   — same, plus up to 100 bonus accounts
-//! - `POST /v1/replay-slot`              — state of accounts at the start of a slot
-//! - `POST /v1/slot-entries`             — signatures of a slot, grouped by entry
-//!
-//! Program bytecode is referenced by default (`programs=ref`); pass
-//! [`ProgramsMode::Inline`] to embed the full programdata in the response (what
-//! this crate's LiteSVM loader expects for a self-contained snapshot).
+//! Auth: `X-API-KEY` header. Responses use `{ success, data, errors?, meta }`.
 
 use anyhow::{anyhow, Context, Result};
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT_ENCODING};
-use serde_json::{json, Value};
-use std::str::FromStr;
+use serde_json::Value;
 
-/// How program bytecode is returned by the `/replay*` endpoints.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ProgramsMode {
-    /// Bytecode by reference (`data_ref`); fetch misses via `GET /v1/programs/{id}`.
-    Ref,
-    /// Full programdata embedded in the response (~1–12 MB per call).
-    Inline,
-    /// No program data at all.
-    None,
-}
-
-impl ProgramsMode {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            ProgramsMode::Ref => "ref",
-            ProgramsMode::Inline => "inline",
-            ProgramsMode::None => "none",
-        }
-    }
-}
-
-impl FromStr for ProgramsMode {
-    type Err = String;
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s.trim().to_ascii_lowercase().as_str() {
-            "ref" => Ok(ProgramsMode::Ref),
-            "inline" => Ok(ProgramsMode::Inline),
-            "none" => Ok(ProgramsMode::None),
-            other => Err(format!("invalid programs mode '{other}' (expected ref|inline|none)")),
-        }
-    }
-}
-
-/// Query options for `GET /v1/replay/{signature}`.
+/// Query options for `GET /v2/replay/tx/{signature}`.
 #[derive(Clone, Debug)]
 pub struct CircularReplayQuery {
     pub alts: bool,
     pub spl: bool,
+    /// Full program bytecode in `programs_pre` / `programs_post` (LiteSVM needs this).
+    pub program_details: bool,
+    /// Up to 100 extra pubkeys (comma-separated in the query string).
+    pub bonus_accounts: Vec<String>,
 }
 
 impl Default for CircularReplayQuery {
     fn default() -> Self {
-        Self { alts: true, spl: true }
-    }
-}
-
-/// Body for `POST /v1/replay` (transaction replay with optional bonus accounts).
-#[derive(Clone, Debug)]
-pub struct CircularReplayRequest {
-    pub signature: String,
-    /// Optional hint: the slot containing the transaction.
-    pub slot: Option<u64>,
-    /// Up to 100 extra pubkeys captured just before the transaction.
-    pub bonus_accounts: Vec<String>,
-    pub alt_details: bool,
-    pub spl_details: bool,
-    pub programs: ProgramsMode,
-}
-
-impl CircularReplayRequest {
-    /// Inline programs by default so the snapshot is self-contained (reusable by
-    /// `compare_rpc -f …` and the LiteSVM loader without `/v1/programs` hydration).
-    pub fn new(signature: impl Into<String>) -> Self {
         Self {
-            signature: signature.into(),
-            slot: None,
+            alts: true,
+            spl: true,
+            program_details: true,
             bonus_accounts: Vec::new(),
-            alt_details: true,
-            spl_details: true,
-            programs: ProgramsMode::Inline,
         }
-    }
-
-    pub fn with_slot(mut self, slot: u64) -> Self {
-        self.slot = Some(slot);
-        self
-    }
-
-    pub fn with_bonus_accounts(mut self, accounts: Vec<String>) -> Self {
-        self.bonus_accounts = accounts;
-        self
-    }
-
-    pub fn with_programs(mut self, programs: ProgramsMode) -> Self {
-        self.programs = programs;
-        self
-    }
-
-    fn to_body(&self) -> Value {
-        let mut body = json!({
-            "signature": self.signature.trim(),
-            "bonus_accounts": self.bonus_accounts,
-            "alt_details": self.alt_details,
-            "spl_details": self.spl_details,
-            "programs": self.programs.as_str(),
-        });
-        if let Some(slot) = self.slot {
-            body["slot"] = json!(slot);
-        }
-        body
     }
 }
 
-/// Body for `POST /v1/replay-slot` (account states at the start of a slot).
+/// Query options for `GET /v2/replay/slot/{slot}`.
 #[derive(Clone, Debug)]
-pub struct ReplaySlotRequest {
-    pub slot: u64,
+pub struct ReplaySlotQuery {
+    pub alts: bool,
+    pub spl: bool,
+    pub program_details: bool,
+    /// One to 100 base58 pubkeys.
     pub accounts: Vec<String>,
-    pub alt_details: bool,
-    pub spl_details: bool,
-    pub programs: ProgramsMode,
 }
 
-impl ReplaySlotRequest {
-    pub fn new(slot: u64, accounts: Vec<String>) -> Self {
+impl Default for ReplaySlotQuery {
+    fn default() -> Self {
         Self {
-            slot,
-            accounts,
-            alt_details: true,
-            spl_details: true,
-            programs: ProgramsMode::Inline,
+            alts: true,
+            spl: true,
+            program_details: true,
+            accounts: Vec::new(),
         }
     }
-
-    pub fn with_programs(mut self, programs: ProgramsMode) -> Self {
-        self.programs = programs;
-        self
-    }
-
-    fn to_body(&self) -> Value {
-        json!({
-            "slot": self.slot,
-            "accounts": self.accounts,
-            "alt_details": self.alt_details,
-            "spl_details": self.spl_details,
-            "programs": self.programs.as_str(),
-        })
-    }
 }
 
-/// Body for `POST /v1/slot-entries` (signatures of a slot, grouped by entry).
-#[derive(Clone, Debug)]
-pub struct SlotEntriesRequest {
-    pub slot: u64,
-}
-
-impl SlotEntriesRequest {
-    fn to_body(&self) -> Value {
-        json!({ "slot": self.slot })
-    }
-}
-
-/// Client for Circular's replay service.
+/// Client for Circular replay on `pro.circular.fi` (or another Pro gateway base URL).
 #[derive(Clone, Debug)]
 pub struct CircularReplayClient {
     base_url: String,
@@ -198,80 +79,95 @@ impl CircularReplayClient {
         &self.base_url
     }
 
-    /// `GET /status` — queryable slot window. Public route, no API key required.
+    /// `GET /v2/replay/status` — replayable slot window.
     pub async fn status(&self) -> Result<Value> {
-        let url = format!("{}/status", self.base_url);
-        let resp = self
-            .http
-            .get(&url)
-            .send()
-            .await
-            .with_context(|| format!("GET {url} failed"))?;
-        Self::parse_json_response(resp, &url).await
+        self.get_v2("/v2/replay/status").await
     }
 
-    /// `GET /v1/replay/{signature}` (programs embedded inline).
+    /// `GET /v2/replay/tx/{signature}`.
     pub async fn replay(&self, signature: &str, query: &CircularReplayQuery) -> Result<Value> {
         let sig = signature.trim();
-        let url = format!(
-            "{}/v1/replay/{}?alts={}&spl={}&programs=inline",
-            self.base_url, sig, query.alts, query.spl
+        let mut path = format!(
+            "/v2/replay/tx/{sig}?alts={}&spl={}&program_details={}",
+            query.alts, query.spl, query.program_details
         );
-        let resp = self
-            .http
-            .get(&url)
-            .header("X-Api-Key", &self.api_key)
-            .send()
+        append_csv_query(&mut path, "bonus_accounts", &query.bonus_accounts);
+        self.get_v2(&path).await
+    }
+
+    /// `GET /v2/replay/slot/{slot}` — account states at the start of the slot.
+    pub async fn replay_slot(&self, slot: u64, query: &ReplaySlotQuery) -> Result<Value> {
+        let mut path = format!(
+            "/v2/replay/slot/{slot}?alts={}&spl={}&program_details={}",
+            query.alts, query.spl, query.program_details
+        );
+        append_csv_query(&mut path, "accounts", &query.accounts);
+        self.get_v2(&path).await
+    }
+
+    /// `GET /v2/replay/slot/{slot}/entries` — signatures grouped by entry.
+    pub async fn slot_entries(&self, slot: u64) -> Result<Value> {
+        self.get_v2(&format!("/v2/replay/slot/{slot}/entries"))
             .await
-            .with_context(|| format!("GET {url} failed"))?;
-        Self::parse_json_response(resp, &url).await
     }
 
-    /// `POST /v1/replay` — replay with up to 100 bonus accounts.
-    pub async fn replay_with_accounts(&self, req: &CircularReplayRequest) -> Result<Value> {
-        self.post_json("/v1/replay", &req.to_body()).await
-    }
-
-    /// `POST /v1/replay-slot` — account states at the start of `req.slot`.
-    pub async fn replay_slot(&self, req: &ReplaySlotRequest) -> Result<Value> {
-        self.post_json("/v1/replay-slot", &req.to_body()).await
-    }
-
-    /// `POST /v1/slot-entries` — transaction signatures of a slot, grouped by entry.
-    pub async fn slot_entries(&self, req: &SlotEntriesRequest) -> Result<Value> {
-        self.post_json("/v1/slot-entries", &req.to_body()).await
-    }
-
-    async fn post_json(&self, path: &str, body: &Value) -> Result<Value> {
+    async fn get_v2(&self, path: &str) -> Result<Value> {
         let url = format!("{}{}", self.base_url, path);
         let resp = self
             .http
-            .post(&url)
-            .header("X-Api-Key", &self.api_key)
-            .json(body)
+            .get(&url)
+            .header("X-API-KEY", &self.api_key)
             .send()
             .await
-            .with_context(|| format!("POST {url} failed"))?;
-        Self::parse_json_response(resp, &url).await
+            .with_context(|| format!("GET {url} failed"))?;
+        Self::parse_v2_envelope(resp, &url).await
     }
 
-    async fn parse_json_response(resp: reqwest::Response, url: &str) -> Result<Value> {
+    async fn parse_v2_envelope(resp: reqwest::Response, url: &str) -> Result<Value> {
         let status = resp.status();
         let text = resp
             .text()
             .await
             .with_context(|| format!("failed to read response body from {url}"))?;
 
-        if status.is_success() {
-            return serde_json::from_str(&text)
-                .with_context(|| format!("response from {url} is not valid JSON"));
+        let envelope: Value = serde_json::from_str(&text)
+            .with_context(|| format!("response from {url} is not valid JSON"))?;
+
+        if envelope.get("success").and_then(Value::as_bool) == Some(true) {
+            return envelope
+                .get("data")
+                .cloned()
+                .filter(|v| !v.is_null())
+                .ok_or_else(|| anyhow!("{url}: success response missing `data`"));
         }
 
-        let detail = serde_json::from_str::<Value>(&text)
-            .ok()
-            .and_then(|v| v.get("error").or_else(|| v.get("message")).cloned())
-            .map(|v| v.to_string())
-            .unwrap_or(text);
+        let detail = envelope
+            .get("errors")
+            .and_then(|v| v.as_array())
+            .map(|errs| {
+                errs.iter()
+                    .filter_map(|e| e.get("message").and_then(Value::as_str))
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            })
+            .filter(|s| !s.is_empty())
+            .or_else(|| {
+                envelope
+                    .pointer("/detail/message")
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            })
+            .unwrap_or_else(|| text.clone());
         Err(anyhow!("HTTP {} from {url}: {detail}", status.as_u16()))
     }
+}
+
+fn append_csv_query(path: &mut String, key: &str, values: &[String]) {
+    if values.is_empty() {
+        return;
+    }
+    path.push('&');
+    path.push_str(key);
+    path.push('=');
+    path.push_str(&values.join(","));
 }
