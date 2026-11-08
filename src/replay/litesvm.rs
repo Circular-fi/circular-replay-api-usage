@@ -52,6 +52,7 @@ pub struct SvmReplayOutcome {
 pub fn new_replay_svm() -> LiteSVM {
     LiteSVM::default()
         .with_feature_set(replay_feature_set())
+        .with_precompiles()
         .with_builtins()
         .with_sysvars()
         .with_default_programs()
