@@ -1,6 +1,8 @@
 # circular-replay-api-usage
 
-Rust client and LiteSVM replay helpers for the **Circular Pro replay API** ([documentation](https://pro.circular.fi/documentation)).
+Rust client and LiteSVM replay helpers for the **Circular Pro replay API** ([documentation](https://docs.circular.fi/v2/replay)).
+
+You can also test this using a ([graphical user interface](https://circular.fi/replay)).
 
 ## API
 
