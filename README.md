@@ -64,7 +64,7 @@ let snapshot = client.replay(signature, &CircularReplayQuery::default()).await?;
 fixtures/     replay-circular-*.json
 examples/     fetch_replay, compare_rpc, status, replay_from_api,
               replay_from_file, replay_slot, slot_entries
-programs/     optional .so overrides (Memo, Token, …)
+programs/     optional .so overrides (Memo, Token, Token-2022, Stake)
 src/api/      CircularReplayClient (/v2/replay/*)
 src/replay/   snapshot, LiteSVM, RPC compare
 ```

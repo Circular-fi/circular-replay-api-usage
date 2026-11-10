@@ -13,6 +13,6 @@ pub use replay::{
 };
 pub use programs::{
     DEFAULT_OVERRIDE_PROGRAMS, SPL_MEMO_ELF_BYTES, SPL_MEMO_PROGRAM, SPL_TOKEN_2022_ELF_BYTES,
-    SPL_TOKEN_2022_PROGRAM, SPL_TOKEN_ELF_BYTES, SPL_TOKEN_PROGRAM,
+    SPL_TOKEN_2022_PROGRAM, SPL_TOKEN_ELF_BYTES, SPL_TOKEN_PROGRAM, STAKE_ELF_BYTES, STAKE_PROGRAM,
 };
 pub use util::{fixture_path, print_json_response, print_replay_summary, save_json_pretty};

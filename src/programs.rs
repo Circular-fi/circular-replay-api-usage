@@ -12,14 +12,22 @@ pub const SPL_TOKEN_2022_PROGRAM: &str = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEp
 /// SPL Memo (BPF Loader v2 on mainnet — load with `add_program_with_loader` when owner is v2).
 pub const SPL_MEMO_PROGRAM: &str = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
 
+/// Stake (Core BPF, upgradeable loader on mainnet). LiteSVM bundles another
+/// build whose compute units differ; refresh the dump after each mainnet upgrade
+/// (last deployed at slot 443_232_000).
+pub const STAKE_PROGRAM: &str = "Stake11111111111111111111111111111111111111";
+
 /// Typical ELF sizes after `solana program dump` (sanity checks / docs).
 pub const SPL_TOKEN_ELF_BYTES: u64 = 108_600;
 pub const SPL_TOKEN_2022_ELF_BYTES: u64 = 1_382_016;
 pub const SPL_MEMO_ELF_BYTES: u64 = 74_800;
+pub const STAKE_ELF_BYTES: u64 = 212_056;
 
-/// Default set shipped under `programs/` for bit-exact CPI / rent on common swaps.
+/// Default set shipped under `programs/` for bit-exact CPI / rent on common swaps
+/// and stake operations.
 pub const DEFAULT_OVERRIDE_PROGRAMS: &[&str] = &[
     SPL_TOKEN_PROGRAM,
     SPL_TOKEN_2022_PROGRAM,
     SPL_MEMO_PROGRAM,
+    STAKE_PROGRAM,
 ];
