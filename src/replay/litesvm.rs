@@ -4,7 +4,7 @@
 //! - blockhash_check OFF; when `execution.last_blockhash` is present it is used as the message blockhash
 //! - `Clock`, `SlotHashes`, `LastRestartSlot`, `EpochSchedule`, and `Rent` come from the snapshot
 //!   (`execution`, `epoch_schedule`, `rent`) — no RPC during setup
-//! - SVM feature gates enabled before loading programs
+//! - feature gates: LiteSVM's mainnet set plus `EXTRA_MAINNET_FEATURES`, set before loading programs
 
 use crate::replay::snapshot::{
     EpochScheduleSnapshot, ExecutionSnapshot, LoadStats, RentSnapshot, ReplaySnapshot,
@@ -26,12 +26,7 @@ use solana_sdk::{
 };
 use std::str::FromStr;
 
-const EXTRA_MAINNET_FEATURES: &[Pubkey] = &[
-    agave_feature_set::account_data_direct_mapping::ID,
-    agave_feature_set::virtual_address_space_adjustments::ID,
-    agave_feature_set::remaining_compute_units_syscall_enabled::ID,
-    agave_feature_set::direct_account_pointers_in_program_input::ID,
-];
+const EXTRA_MAINNET_FEATURES: &[Pubkey] = &[];
 
 fn replay_feature_set() -> agave_feature_set::FeatureSet {
     let mut feature_set = LiteSVM::mainnet_feature_set();
